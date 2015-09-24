@@ -99,4 +99,31 @@ class FoldableTestsAdditional extends CatsSuite {
     // toStreaming should be lazy
     assert(dangerous.toStreaming.take(3).toList == List(0, 1, 2))
   }
+
+  test("Foldable[NonEmptySet]") {
+    import data.NonEmptySet
+    val F = Foldable[data.NonEmptySet]
+
+    // some basic sanity checks
+    val seq = (1 to 10).toSeq
+    val ns = NonEmptySet(seq:_*).value
+    val total = seq.sum
+    F.foldLeft(ns, 0)(_ + _) should === (total)
+    F.foldRight(ns, Now(0))((x, ly) => ly.map(x + _)).value should === (total)
+    F.fold(ns) should === (total)
+
+    // more basic checks
+    val names = List("Aaron", "Betty", "Calvin", "Deirdra")
+    val nameSet = NonEmptySet(names:_*).value
+    F.foldMap(nameSet)(_.length) should === (names.map(_.length).sum)
+
+    // test trampolining
+    val large = NonEmptySet((1 to 10000).toList: _*).value
+    assert(contains(large, 10000).value)
+
+    // safely build large sets
+    val setWithZero = NonEmptySet(0).value
+    val larger = F.foldRight(large, Now(setWithZero))((x, lxs:Eval[NonEmptySet[Int]]) => lxs.map(_ + (x + 1)))
+    larger.value.size should === (setWithZero.size + large.size)
+  }
 }
